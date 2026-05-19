@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>底力练习 3D</title>
+<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/build/jsmediatags.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #0f0f1a; color: #e0e0f0; }
+
+.menu {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  z-index: 100; background: #0f0f1a;
+  overflow-y: auto; padding: 24px 12px;
+}
+.menu > * { flex-shrink: 0; }
+.menu h1 {
+  font-size: 36px; font-weight: 800; letter-spacing: 3px;
+  background: linear-gradient(135deg, #667eea, #e74c3c);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+.menu p { color: rgba(255,255,255,0.35); font-size: 14px; letter-spacing: 2px; margin-bottom: 24px; }
+.mode-select { display: flex; gap: 10px; margin-bottom: 16px; }
+.mode-btn {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.4); padding: 10px 28px; border-radius: 40px;
+  font-size: 15px; font-weight: 600; cursor: pointer; letter-spacing: 1px; transition: all 0.2s;
+}
+.mode-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2); border-color: transparent;
+  color: #fff; box-shadow: 0 4px 16px rgba(102,126,234,0.3);
+}
+.custom-inputs { display: none; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
+.custom-inputs.show { display: flex; }
+.custom-inputs .input-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.custom-inputs label { font-size: 12px; color: rgba(255,255,255,0.35); letter-spacing: 1px; }
+.custom-inputs input {
+  width: 100px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 10px 12px; color: #fff; font-size: 18px; font-weight: 700;
+  text-align: center; outline: none;
+}
+.custom-inputs input:focus { border-color: #667eea; }
+.custom-inputs input::-webkit-outer-spin-button,
+.custom-inputs input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.custom-inputs .hint { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 2px; }
+.speed-label { font-size: 12px; color: rgba(255,255,255,0.35); letter-spacing: 1px; margin-bottom: 8px; text-align: center; }
+.speed-select { display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 16px; }
+.speed-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: #fff; font-size: 20px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; user-select: none;
+}
+.speed-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.12); }
+#speedDisplay {
+  min-width: 56px; text-align: center;
+  font-size: 24px; font-weight: 800; color: #fff;
+  letter-spacing: 2px;
+}
+.start-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2); border: none; color: #fff;
+  padding: 18px 64px; border-radius: 60px; font-size: 20px; font-weight: 700;
+  letter-spacing: 2px; cursor: pointer; transition: all 0.25s;
+  box-shadow: 0 8px 28px rgba(102,126,234,0.35);
+}
+.start-btn:active { transform: scale(0.95); }
+.best { margin-top: 20px; color: #f39c12; font-size: 15px; letter-spacing: 1px; }
+
+.game-area { position: absolute; inset: 0; display: none; touch-action: none; }
+.game-area.active { display: block; }
+
+#mainCanvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hud {
+  position: absolute; top: 10px; left: 50px;
+  padding: 8px 12px; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+  border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);
+  z-index: 20; font-size: 11px; color: rgba(255,255,255,0.45);
+  display: none; flex-direction: column; gap: 3px;
+  min-width: 80px; pointer-events: none;
+}
+.hud.show { display: flex; }
+.hud .hr { display: flex; justify-content: space-between; gap: 10px; }
+.hud strong { font-weight: 700; color: #fff; font-size: 12px; }
+
+#musicInfo {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+  border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);
+  padding: 8px 12px; z-index: 20; pointer-events: none;
+  display: none; flex-direction: column; align-items: center; gap: 4px;
+  min-width: 70px;
+}
+#musicCover { font-size: 28px; line-height: 1; }
+#musicTitle { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
+#progressWrap { width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+#progressFill { height: 100%; width: 0%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.1s linear; }
+
+#pauseBtn {
+  position: absolute; top: 10px; left: 10px; z-index: 26;
+  width: 34px; height: 34px; border-radius: 6px;
+  background: #000; border: none;
+  color: #fff; font-size: 13px; cursor: pointer;
+  display: none; align-items: center; justify-content: center; gap: 2px;
+  transition: all 0.15s;
+  outline: none; -webkit-tap-highlight-color: transparent;
+}
+#pauseBtn b { font-weight: 700; font-size: 14px; line-height: 1; }
+#pauseBtn:active { transform: scale(0.9); }
+
+#pauseDialog {
+  display: none; position: absolute; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+  justify-content: center; align-items: center;
+}
+#pauseDialog .box {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 28px 32px; text-align: center; max-width: 280px; width: 80%;
+}
+#pauseDialog .box .title { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: #fff; }
+#pauseDialog .box .sub { font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 16px; }
+#pauseDialog .box .btn {
+  display: block; width: 100%; margin: 6px 0; padding: 12px;
+  border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: #fff; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; letter-spacing: 1px;
+}
+#pauseDialog .box .btn:active { transform: scale(0.96); }
+#pauseDialog .box .btn.primary { background: #667eea; border-color: transparent; }
+
+#recDialog {
+  display: none; position: absolute; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+  justify-content: center; align-items: center;
+}
+#recDialog .box {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 28px 32px; text-align: center; max-width: 300px; width: 80%;
+}
+#recDialog .box p { margin: 10px 0 16px; font-size: 14px; color: rgba(255,255,255,0.5); }
+#recDialog .box .btn {
+  display: block; width: 100%; margin: 6px 0; padding: 12px;
+  border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: #fff; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; letter-spacing: 1px;
+}
+#recDialog .box .btn:active { transform: scale(0.96); }
+#recDialog .box .btn.primary { background: #e74c3c; border-color: transparent; }
+
+.center-msg {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 30px; font-weight: 800; letter-spacing: 2px;
+  pointer-events: none; z-index: 15; text-align: center;
+}
+
+.judge-line {
+  position: absolute;
+  height: 2px; z-index: 4; pointer-events: none;
+}
+.judge-line::before {
+  content: '▼'; position: absolute; right: -16px; top: -14px;
+  font-size: 10px; color: rgba(255,255,255,0.15);
+}
+
+.result-overlay {
+  display: none; position: absolute; inset: 0;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  z-index: 100; justify-content: center; align-items: center; touch-action: auto;
+}
+.result-overlay.show { display: flex; }
+.result-box {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 28px; padding: 36px 40px; text-align: center; max-width: 380px; width: 88%;
+}
+.result-box .big-num { font-size: 48px; font-weight: 800; color: #2ecc71; }
+.result-box .stat-row { display: flex; justify-content: center; gap: 32px; margin: 18px 0; }
+.result-box .stat-item .num { font-size: 28px; font-weight: 800; }
+.result-box .stat-item .label { font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 2px; }
+.result-box .comment { margin: 14px 0 18px; font-size: 18px; letter-spacing: 1px; }
+.result-box .btn {
+  background: linear-gradient(135deg, #667eea, #764ba2); border: none; color: #fff;
+  padding: 14px 44px; border-radius: 40px; font-size: 16px; font-weight: 600;
+  cursor: pointer; letter-spacing: 1px; transition: all 0.25s; margin: 4px;
+}
+.result-box .btn:active { transform: scale(0.95); }
+.result-box .btn-plain { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); padding: 10px 32px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="menu" id="menu">
+  <h1>👆 底力练习 3D</h1>
+  <p>Canvas高性能版 · 手机端建议全屏横屏游玩</p>
+  <div class="mode-select">
+    <button class="mode-btn active" data-mode="progressive">🎮 渐进</button>
+    <button class="mode-btn" data-mode="custom">⚙️ 自定义</button>
+  </div>
+  <div class="custom-inputs" id="customInputs">
+    <div class="input-group">
+      <label>每秒方块数</label>
+      <input type="number" id="inputRate" value="3" min="0.5" step="0.5">
+    </div>
+    <div class="input-group">
+      <label>BPM</label>
+      <input type="number" id="inputBpm" value="180" min="30" step="5">
+    </div>
+    <div class="hint">修改任一自动换算</div>
+  </div>
+  <div class="speed-label">下落速度（仅视觉，不影响击打频率）</div>
+  <div class="speed-select" id="speedSelect">
+    <button class="speed-btn" id="speedDown">−</button>
+    <span id="speedDisplay">1.0</span>
+    <button class="speed-btn" id="speedUp">+</button>
+  </div>
+  <button class="start-btn" id="startBtn">开始挑战</button>
+  <div class="best" id="bestDisplay">—</div>
+  <div style="width:80%;max-width:360px;border-top:1px solid rgba(255,255,255,0.06);margin:14px 0 12px;"></div>
+  <div style="font-size:12px;color:rgba(255,255,255,0.3);letter-spacing:1px;margin-bottom:8px;">🎼 作谱 &amp; 自制谱</div>
+  <input type="file" id="mp3Input" accept="audio/*" hidden>
+  <input type="file" id="chartInput" accept=".json" hidden>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:6px;">
+    <button class="mode-btn" id="uploadMp3Btn">📁 上传MP3</button>
+    <button class="mode-btn" id="chartModeBtn">✏️ 作谱</button>
+    <button class="mode-btn" id="saveChartBtn">💾 存谱</button>
+  </div>
+  <div id="mp3Status" style="font-size:11px;color:rgba(255,255,255,0.25);margin-bottom:6px;text-align:center;">未上传音频</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">
+    <button class="mode-btn" id="loadChartBtn">📂 加载谱面</button>
+    <button class="mode-btn" id="playChartBtn">▶️ 演奏自制谱</button>
+  </div>
+  <div id="chartStatus" style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:6px;text-align:center;">未加载谱面</div>
+</div>
+
+<div class="game-area" id="gameArea">
+  <canvas id="mainCanvas"></canvas>
+  <div class="hud" id="hud">
+    <div class="hr"><span>已按</span><strong id="hudScore">0</strong></div>
+    <div class="hr"><span>效率</span><strong id="hudRate">0</strong><span style="color:rgba(255,255,255,0.25);font-size:10px;">/s</span></div>
+    <div class="hr"><span>目标</span><strong id="hudTarget" style="color:#667eea;font-size:12px;">0</strong><span style="color:rgba(255,255,255,0.25);font-size:10px;">/s</span></div>
+    <div class="hr"><span>漏</span><strong id="hudMiss" style="color:#e74c3c;">0/5</strong></div>
+  </div>
+  <div id="musicInfo">
+    <div id="musicCover">🎵</div>
+    <div id="musicTitle">未播放</div>
+    <div id="progressWrap"><div id="progressFill"></div></div>
+  </div>
+  <button id="pauseBtn"><b>|</b><b>|</b></button>
+  <div id="pauseDialog">
+    <div class="box">
+      <div class="title">|&thinsp;| 已暂停</div>
+      <div class="sub" id="pauseSub">按继续恢复游戏</div>
+      <button class="btn primary" id="pauseResumeBtn">▶ 继续</button>
+      <button class="btn" id="pauseExitBtn">🚪 返回菜单</button>
+    </div>
+  </div>
+  <div id="recDialog">
+    <div class="box">
+      <div id="recDialogCount" style="font-size:24px;font-weight:800;color:#e74c3c;">● REC</div>
+      <p id="recDialogMsg">录制进行中</p>
+      <button class="btn primary" id="recContinueBtn">▶ 继续录制</button>
+      <button class="btn" id="recSaveBtn">💾 保存并退出</button>
+      <button class="btn" id="recDiscardBtn">🚪 不保存退出</button>
+    </div>
+  </div>
+  <div id="chartOverlay" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:25;text-align:center;pointer-events:none;">
+    <div style="font-size:36px;font-weight:800;color:#e74c3c;text-shadow:0 0 20px rgba(231,76,60,0.5);">● REC</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:4px;">敲击 S D J K · 按 ⏹ 停止</div>
+  </div>
+  <div class="judge-line" id="judgeLine"></div>
+  <div class="center-msg" id="centerMsg"></div>
+  <div class="result-overlay" id="resultOverlay">
+    <div class="result-box">
+      <div class="big-num" id="resultRate">0</div>
+      <div style="font-size:13px; color:rgba(255,255,255,0.3); letter-spacing:1px;">块/秒</div>
+      <div class="stat-row">
+        <div class="stat-item"><div class="num" id="resultPerfect" style="color:#2ecc71;">0</div><div class="label">PERFECT</div></div>
+        <div class="stat-item"><div class="num" id="resultGood" style="color:#f39c12;">0</div><div class="label">GOOD</div></div>
+        <div class="stat-item"><div class="num" id="resultLate" style="color:#3498db;">0</div><div class="label">LATE</div></div>
+      </div>
+      <div class="stat-row" style="gap:16px;">
+        <div class="stat-item"><div class="num" id="resultScore" style="color:#3498db;">0</div><div class="label">总点击</div></div>
+        <div class="stat-item"><div class="num" id="resultTime" style="color:#f39c12;">0</div><div class="label">存活秒数</div></div>
+      </div>
+      <div class="comment" id="resultComment"></div>
+      <button class="btn" id="restartBtn">再来一次</button>
+      <button class="btn btn-plain" id="backBtn">返回菜单</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── 音频 ── */
+let audioCtx = null;
+let metronomeTimer = null;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playClick(freq, vol, dur) {
+  try {
+    initAudio();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(o, audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+function playBeat() { playClick(1200, 0.12, 0.05); playClick(600, 0.04, 0.06); }
+function playHit() { playClick(1800, 0.10, 0.04); }
+function playMiss() { playClick(200, 0.15, 0.15); }
+function startMetronome(bpm) {
+  stopMetronome();
+  playBeat();
+  (function tick() {
+    if (!running) return;
+    metronomeTimer = setTimeout(() => { playBeat(); tick(); }, 60000 / bpm);
+  })();
+}
+function stopMetronome() { if (metronomeTimer) { clearTimeout(metronomeTimer); metronomeTimer = null; } }
+
+/* ── 最佳成绩 ── */
+const BEST_KEY = 'multitap_best';
+let bestRate = parseFloat(localStorage.getItem(BEST_KEY)) || 0;
+updateBestDisplay();
+function updateBestDisplay() { document.getElementById('bestDisplay').textContent = bestRate > 0 ? `最佳: ${bestRate.toFixed(1)} 块/秒` : '—'; }
+function saveBest(rate) { if (rate > bestRate) { bestRate = rate; localStorage.setItem(BEST_KEY, String(rate)); updateBestDisplay(); } }
+
+function getComment(rate) {
+  if (rate >= 12) return '🔥 触手怪！十指全开恐怖如斯';
+  if (rate >= 9) return '🫡 单身二十年手速，佩服';
+  if (rate >= 7) return '💪 可以，手指挺灵活';
+  if (rate >= 5) return '👌 正常手速';
+  if (rate >= 3) return '🐢 有点慢';
+  return '💀 拉完了';
+}
+
+/* ── 谱面数据 ── */
+let chartPlayer = null;
+let chartNotes = [];
+let chartNextIdx = 0;
+let isChartRecording = false;
+let isChartPlayback = false;
+let chartMp3Blob = null;
+let chartMp3Name = '';
+let recordedNotes = [];
+let chartTravelTime = 2000;
+
+/* ── 常量 ── */
+const LANE_COUNT = 4;
+const BLOCK_SIZE = 27;
+const PERFECT_RANGE = 60, GOOD_RANGE = 100, MISS_RANGE = 140;
+const MAX_MISS = 5;
+const STAGE_DURATION = 5000;
+const RATE_INCREMENT = 0.2;
+const SPEED_KEY = 'scroll_speed';
+const FALL_SPEED = 360; // px/s at scale=1.0 (原 6px/frame × 60fps → 帧率无关)
+
+let scrollSpeed = parseFloat(localStorage.getItem(SPEED_KEY)) || 1.0;
+document.getElementById('speedDisplay').textContent = scrollSpeed.toFixed(1);
+function setScrollSpeed(v) {
+  scrollSpeed = Math.round(Math.max(0.5, Math.min(6.0, v)) * 10) / 10;
+  document.getElementById('speedDisplay').textContent = scrollSpeed.toFixed(1);
+  localStorage.setItem(SPEED_KEY, String(scrollSpeed));
+}
+
+/* ── 游戏状态 ── */
+let running = false, paused = false, score = 0, missCount = 0, startTime = 0;
+let judgeCounts = { perfect: 0, good: 0, late: 0, miss: 0 };
+let lastFrameTime = 0; // 时间基移动用，秒为单位
+let lastGameMode = 'normal';
+let gameMode = 'progressive';
+let currentRate = 1.25;
+let spawnTimer = null, stageTimer = null;
+let hitTimestamps = [];
+let peakRate = 0;
+let laneBlocks = [[], [], [], []];
+let animId = null;
+
+/* ── 特效状态（Canvas绘制用） ── */
+let laneFlashTimers = [-1, -1, -1, -1];  // performance.now() when flash started, -1 = inactive
+let judgeTexts = [];  // { text, color, startTime }
+
+/* ── Canvas 缓存 ── */
+let mainCanvas, mainCtx;
+let canvasW, canvasH;
+let bgCanvas = null;       // 离屏背景缓存
+let recordingAnimId = null; // 录制时的绘制循环
+
+/* ══════════════════════════════════════════════════════════════
+   透视/布局数学（不变）
+   ══════════════════════════════════════════════════════════════ */
+function getPerspectiveParams() {
+  const H = window.innerHeight;
+  const W = window.innerWidth;
+  return {
+    nearY: H - Math.min(110, H * 0.18),
+    farY: 0,
+    nearLaneWidth: W / (LANE_COUNT + 2),
+    centerX: W / 2,
+    H, W
+  };
+}
+
+function getScaleAtY(y, p, extrapolate) {
+  const t = (y - p.farY) / (p.nearY - p.farY);
+  if (extrapolate) return Math.max(0.09, 0.09 + 0.91 * t);
+  if (y <= p.farY) return 0.09;
+  if (y >= p.nearY) return 1.0;
+  return 0.09 + 0.91 * t;
+}
+
+function getLaneInfoAtY(y, p, extrapolate) {
+  const s = getScaleAtY(y, p, extrapolate);
+  const totalW = p.nearLaneWidth * LANE_COUNT * s;
+  const startX = p.centerX - totalW / 2;
+  const laneW = p.nearLaneWidth * s;
+  const lanes = [];
+  for (let i = 0; i < LANE_COUNT; i++) lanes.push(startX + i * laneW);
+  return { laneW, lanes, startX };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Canvas 绘制 — 背景
+   ══════════════════════════════════════════════════════════════ */
+function drawBackground(ctx, p) {
+  const { nearY, farY, centerX, nearLaneWidth, H, W } = p;
+
+  // 跑道渐变
+  const bgGrad = ctx.createLinearGradient(0, farY, 0, nearY);
+  bgGrad.addColorStop(0, '#080812');
+  bgGrad.addColorStop(0.5, '#0e0e20');
+  bgGrad.addColorStop(1, '#161630');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, farY, W, nearY - farY);
+
+  // 平台
+  const platGrad = ctx.createLinearGradient(0, nearY, 0, H);
+  platGrad.addColorStop(0, '#1a1a34');
+  platGrad.addColorStop(0.3, '#141428');
+  platGrad.addColorStop(1, '#0f0f1a');
+  ctx.fillStyle = platGrad;
+  ctx.fillRect(0, nearY, W, H - nearY);
+
+  const farInfo = getLaneInfoAtY(farY, p);
+  const nearInfo = getLaneInfoAtY(nearY, p);
+
+  // 跑道梯形填色
+  const tints = [
+    'hsla(0, 70%, 55%, 0.04)',
+    'hsla(150, 60%, 50%, 0.04)',
+    'hsla(210, 70%, 55%, 0.04)',
+    'hsla(280, 60%, 55%, 0.04)',
+  ];
+  for (let i = 0; i < LANE_COUNT; i++) {
+    const x1n = nearInfo.lanes[i], x2n = x1n + nearInfo.laneW;
+    const x1f = farInfo.lanes[i], x2f = x1f + farInfo.laneW;
+    ctx.beginPath();
+    ctx.moveTo(x1f, farY);
+    ctx.lineTo(x2f, farY);
+    ctx.lineTo(x2n, nearY);
+    ctx.lineTo(x1n, nearY);
+    ctx.closePath();
+    ctx.fillStyle = tints[i];
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // 分割线
+  for (let i = 0; i <= LANE_COUNT; i++) {
+    const xf = i < LANE_COUNT ? farInfo.lanes[i] : farInfo.lanes[LANE_COUNT-1] + farInfo.laneW;
+    const xn = i < LANE_COUNT ? nearInfo.lanes[i] : nearInfo.lanes[LANE_COUNT-1] + nearInfo.laneW;
+    ctx.beginPath();
+    ctx.moveTo(xn, nearY);
+    ctx.lineTo(xf, farY);
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.06 + 0.04 * (i===0||i===LANE_COUNT ? 1 : 0.5)) + ')';
+    ctx.lineWidth = i===0||i===LANE_COUNT ? 1.5 : 1;
+    ctx.stroke();
+  }
+
+  // 横向标记
+  for (let i = 1; i <= 4; i++) {
+    const y = farY + (nearY - farY) * i / 4;
+    const info = getLaneInfoAtY(y, p);
+    const l = info.lanes[0], r = info.lanes[LANE_COUNT-1] + info.laneW;
+    ctx.beginPath();
+    ctx.moveTo(l, y);
+    ctx.lineTo(r, y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // 判定线发光
+  const glow = ctx.createLinearGradient(0, nearY - 25, 0, nearY + 5);
+  glow.addColorStop(0, 'rgba(102,126,234,0)');
+  glow.addColorStop(0.7, 'rgba(102,126,234,0.12)');
+  glow.addColorStop(1, 'rgba(102,126,234,0.25)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, nearY - 25, W, 30);
+
+  // 按键梯形（S/D/J/K）
+  const keys = ['S','D','J','K'];
+  const hintTop = nearY - 24;
+  const hintBot = nearY + 36;
+  const topInfo = getLaneInfoAtY(hintTop, p, true);
+  const botInfo = getLaneInfoAtY(hintBot, p, true);
+  for (let i = 0; i < LANE_COUNT; i++) {
+    const x1t = topInfo.lanes[i], x2t = x1t + topInfo.laneW;
+    const x1b = botInfo.lanes[i], x2b = x1b + botInfo.laneW;
+    ctx.beginPath();
+    ctx.moveTo(x1t, hintTop);
+    ctx.lineTo(x2t, hintTop);
+    ctx.lineTo(x2b, hintBot);
+    ctx.lineTo(x1b, hintBot);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    const cx = (x1t + x2t + x1b + x2b) / 4;
+    const cy = (hintTop + hintBot) / 2;
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(keys[i], cx, cy);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Canvas 绘制 — 方块
+   ══════════════════════════════════════════════════════════════ */
+function drawBlocks(ctx, p) {
+  const now = performance.now();
+  const allBlocks = [];
+  for (let lane = 0; lane < LANE_COUNT; lane++) {
+    for (const b of laneBlocks[lane]) allBlocks.push(b);
+  }
+  // 按 Y 排序确保深度正确
+  allBlocks.sort((a, b) => a.posY - b.posY);
+
+  for (const b of allBlocks) {
+    const s = getScaleAtY(b.posY, p);
+    const h = BLOCK_SIZE * s;
+    const botY = b.posY + h;
+    const infoTop = getLaneInfoAtY(b.posY, p);
+    const infoBot = getLaneInfoAtY(botY, p, true);
+    const M = 2;
+    const topL = infoTop.lanes[b.lane] + M;
+    const topR = infoTop.lanes[b.lane] + infoTop.laneW - M;
+    const botL = infoBot.lanes[b.lane] + M;
+    const botR = infoBot.lanes[b.lane] + infoBot.laneW - M;
+
+    ctx.beginPath();
+    ctx.moveTo(topL, b.posY);
+    ctx.lineTo(topR, b.posY);
+    ctx.lineTo(botR, botY);
+    ctx.lineTo(botL, botY);
+    ctx.closePath();
+
+    if (b.hitTime !== null) {
+      // 击中闪耀
+      const elapsed = now - b.hitTime;
+      if (elapsed >= 200) continue; // 动画已完成，下次循环会被清理
+      const t = elapsed / 200;
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.9 * (1 - t)) + ')';
+      ctx.globalAlpha = Math.max(0, 1 - t);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else if (b.missTime !== null) {
+      // 漏块淡出
+      const elapsed = now - b.missTime;
+      if (elapsed >= 120) continue;
+      ctx.fillStyle = 'hsl(' + b.hue + ', 65%, 20%)';
+      ctx.globalAlpha = 1 - elapsed / 120;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      // 正常方块
+      const opacity = Math.min(1, 0.35 + 0.65 * Math.min(1, s * 1.2));
+      ctx.fillStyle = 'hsl(' + b.hue + ', 65%, 42%)';
+      ctx.globalAlpha = opacity;
+      ctx.fill();
+      // 边缘高光
+      ctx.strokeStyle = 'hsla(' + b.hue + ', 65%, ' + (55 * opacity) + '%,' + (0.25 * opacity) + ')';
+      ctx.lineWidth = Math.max(1, s);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Canvas 绘制 — 跑道闪光
+   ══════════════════════════════════════════════════════════════ */
+function drawLaneFlashes(ctx, p) {
+  const now = performance.now();
+  for (let lane = 0; lane < LANE_COUNT; lane++) {
+    if (laneFlashTimers[lane] < 0) continue;
+    const elapsed = now - laneFlashTimers[lane];
+    if (elapsed > 350) { laneFlashTimers[lane] = -1; continue; }
+    const alpha = 0.25 * (1 - elapsed / 350);
+    if (alpha <= 0) continue;
+
+    const nearInfo = getLaneInfoAtY(p.nearY, p);
+    const farInfo = getLaneInfoAtY(p.farY, p);
+    const x1f = farInfo.lanes[lane], x2f = x1f + farInfo.laneW;
+    const x1n = nearInfo.lanes[lane], x2n = x1n + nearInfo.laneW;
+
+    // 渐变从顶部（远处）弱到底部（近处）强
+    const grad = ctx.createLinearGradient(0, p.farY, 0, p.nearY);
+    grad.addColorStop(0, 'rgba(200,210,255,' + (alpha * 0.3) + ')');
+    grad.addColorStop(1, 'rgba(200,210,255,' + alpha + ')');
+
+    ctx.beginPath();
+    ctx.moveTo(x1f, p.farY);
+    ctx.lineTo(x2f, p.farY);
+    ctx.lineTo(x2n, p.nearY);
+    ctx.lineTo(x1n, p.nearY);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Canvas 绘制 — 判定文字浮动
+   ══════════════════════════════════════════════════════════════ */
+function drawJudgeTexts(ctx, p) {
+  const now = performance.now();
+  for (let i = judgeTexts.length - 1; i >= 0; i--) {
+    const jt = judgeTexts[i];
+    const elapsed = now - jt.startTime;
+    if (elapsed > 450) { judgeTexts.splice(i, 1); continue; }
+    const alpha = 1 - elapsed / 450;
+    const yOff = -(elapsed / 450) * 50;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = jt.color;
+    ctx.font = 'bold 20px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(jt.text, p.centerX, p.nearY - 40 * getScaleAtY(p.nearY - 40, p, true) + yOff);
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   特效触发器（纯数据）
+   ══════════════════════════════════════════════════════════════ */
+function triggerLaneFlash(lane) { laneFlashTimers[lane] = performance.now(); }
+function showJudge(text, color) { judgeTexts.push({ text, color, startTime: performance.now() }); }
+
+/* ══════════════════════════════════════════════════════════════
+   Canvas 尺寸管理 & 主绘制入口
+   ══════════════════════════════════════════════════════════════ */
+function ensureCanvas() {
+  const p = getPerspectiveParams();
+  mainCanvas = document.getElementById('mainCanvas');
+  if (mainCanvas.width !== p.W || mainCanvas.height !== p.H) {
+    mainCanvas.width = p.W;
+    mainCanvas.height = p.H;
+    mainCtx = mainCanvas.getContext('2d');
+    canvasW = p.W; canvasH = p.H;
+    // 离屏缓存背景（尺寸改变时重绘，避免每帧画背景）
+    if (!bgCanvas) bgCanvas = document.createElement('canvas');
+    bgCanvas.width = p.W;
+    bgCanvas.height = p.H;
+    const bgCtx = bgCanvas.getContext('2d');
+    drawBackground(bgCtx, p);
+  }
+}
+
+function drawFrame() {
+  ensureCanvas();
+  if (!mainCtx || !bgCanvas) return;
+  const p = getPerspectiveParams();
+  // 从离屏缓存拷贝背景，避免每帧重画复杂背景
+  mainCtx.clearRect(0, 0, canvasW, canvasH);
+  mainCtx.drawImage(bgCanvas, 0, 0);
+  drawBlocks(mainCtx, p);
+  drawLaneFlashes(mainCtx, p);
+  drawJudgeTexts(mainCtx, p);
+}
+
+/* ── 录制专用绘制循环（录制时没有 gameLoop，需独立 rAF 跑特效） ── */
+function recordingDrawLoop() {
+  if (!isChartRecording) { recordingAnimId = null; return; }
+  drawFrame();
+  recordingAnimId = requestAnimationFrame(recordingDrawLoop);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   方块更新（位置 + 漏块检测）
+   ══════════════════════════════════════════════════════════════ */
+/* noMissCount=true 用于chart播放（不计miss, 大阈值, 不game over） */
+function updateBlocks(p, noMissCount, dt) {
+  const now = performance.now();
+  const threshold = noMissCount ? MISS_RANGE * 3 : MISS_RANGE;
+  for (let lane = 0; lane < LANE_COUNT; lane++) {
+    const blocks = laneBlocks[lane];
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const b = blocks[i];
+      if (b.judged) {
+        if (b.hitTime !== null && now - b.hitTime > 200) { blocks.splice(i, 1); }
+        else if (b.missTime !== null && now - b.missTime > 120) { blocks.splice(i, 1); }
+        continue;
+      }
+      b.posY += FALL_SPEED * scrollSpeed * getScaleAtY(b.posY, p) * dt;
+      if (b.posY > p.nearY + threshold) {
+        b.judged = true; b.missTime = now;
+        if (!noMissCount) {
+          missCount++; judgeCounts.miss++;
+          document.getElementById('hudMiss').textContent = missCount + '/' + MAX_MISS;
+          playMiss();
+          if (missCount >= MAX_MISS) { gameOver(); return false; }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   游戏主循环
+   ══════════════════════════════════════════════════════════════ */
+function gameLoop() {
+  if (!running) { animId = null; return; }
+  const now = performance.now() / 1000; // 秒
+  if (!lastFrameTime) lastFrameTime = now;
+  const dt = Math.min(0.1, now - lastFrameTime); // 上限防标签切换跳帧
+  lastFrameTime = now;
+  const p = getPerspectiveParams();
+  if (!updateBlocks(p, false, dt)) return; // game over
+  drawFrame();
+  animId = requestAnimationFrame(gameLoop);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   方块生成（纯数据，不创建DOM）
+   ══════════════════════════════════════════════════════════════ */
+function spawnBlock() {
+  if (!running) return;
+  const p = getPerspectiveParams();
+  spawnTimer = setTimeout(spawnBlock, 1000 / currentRate);
+  if (!metronomeTimer) startMetronome(Math.round(currentRate * 60));
+  document.getElementById('hudTarget').textContent = currentRate.toFixed(1);
+
+  const lane = Math.floor(Math.random() * LANE_COUNT);
+  const b = {
+    lane: lane,
+    posY: p.farY,
+    hue: Math.floor(Math.random() * 360),
+    judged: false,
+    hitTime: null,
+    missTime: null
+  };
+  laneBlocks[lane].push(b);
+
+  if (!animId) animId = requestAnimationFrame(gameLoop);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   击打处理（纯数据查找）
+   ══════════════════════════════════════════════════════════════ */
+function handleTap(positions) {
+  const p = getPerspectiveParams();
+  for (const pos of positions) {
+    const tapY = Math.max(p.farY, Math.min(p.nearY + 50, pos.y));
+    const info = getLaneInfoAtY(tapY, p, true);
+    let lane = -1;
+    for (let i = 0; i < LANE_COUNT; i++) {
+      if (pos.x >= info.lanes[i] && pos.x <= info.lanes[i] + info.laneW) { lane = i; break; }
+    }
+    if (lane < 0) continue;
+
+    const candidates = laneBlocks[lane].filter(b => !b.judged);
+    if (!candidates.length) continue;
+
+    let best = candidates[0], bestDist = Infinity;
+    for (const c of candidates) {
+      const blockY = c.posY + (BLOCK_SIZE * getScaleAtY(c.posY, p)) / 2;
+      const d = Math.abs(blockY - p.nearY);
+      if (d < bestDist) { bestDist = d; best = c; }
+    }
+
+    let text, color;
+    if (bestDist <= PERFECT_RANGE) { text = 'PERFECT'; color = '#2ecc71'; }
+    else if (bestDist <= GOOD_RANGE) { text = 'GOOD'; color = '#f39c12'; }
+    else if (bestDist <= MISS_RANGE) { text = 'LATE'; color = '#3498db'; }
+    else continue;
+
+    best.judged = true;
+    best.hitTime = performance.now();
+    triggerLaneFlash(lane);
+    showJudge(text, color); playHit();
+
+    if (bestDist <= PERFECT_RANGE) judgeCounts.perfect++;
+    else if (bestDist <= GOOD_RANGE) judgeCounts.good++;
+    else judgeCounts.late++;
+    score++;
+
+    const now = performance.now();
+    hitTimestamps.push(now);
+    while (hitTimestamps.length > 0 && hitTimestamps[0] < now - 3000) hitTimestamps.shift();
+    const windowRate = (hitTimestamps.length / 3).toFixed(1);
+    if (parseFloat(windowRate) > peakRate) peakRate = parseFloat(windowRate);
+    document.getElementById('hudScore').textContent = score;
+    document.getElementById('hudRate').textContent = windowRate;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   阶段推进 & 游戏结束
+   ══════════════════════════════════════════════════════════════ */
+function advanceStage() {
+  if (!running || gameMode !== 'progressive') return;
+  currentRate += RATE_INCREMENT;
+  document.getElementById('hudTarget').textContent = currentRate.toFixed(1);
+  stopMetronome();
+  startMetronome(Math.round(currentRate * 60));
+  stageTimer = setTimeout(advanceStage, STAGE_DURATION);
+}
+
+function gameOver() {
+  if (!running) return;
+  lastGameMode = 'normal'; running = false; stopMetronome();
+  if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
+  if (stageTimer) { clearTimeout(stageTimer); stageTimer = null; }
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  laneBlocks = [[], [], [], []];
+  laneFlashTimers = [-1, -1, -1, -1];
+  judgeTexts = [];
+  const elapsed = (Date.now() - startTime) / 1000;
+  const showRate = peakRate > 0 ? peakRate : (elapsed > 0 ? score / elapsed : 0);
+  saveBest(showRate);
+  document.getElementById('resultRate').textContent = showRate.toFixed(1);
+  document.getElementById('resultScore').textContent = score;
+  document.getElementById('resultTime').textContent = Math.floor(elapsed);
+  document.getElementById('resultPerfect').textContent = judgeCounts.perfect;
+  document.getElementById('resultGood').textContent = judgeCounts.good;
+  document.getElementById('resultLate').textContent = judgeCounts.late;
+  document.getElementById('resultComment').textContent = getComment(showRate);
+  document.getElementById('resultOverlay').classList.add('show');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   开始 / 返回 / 重试
+   ══════════════════════════════════════════════════════════════ */
+function startGame() {
+  initAudio();
+  const modeBtn = document.querySelector('.mode-btn.active');
+  gameMode = modeBtn ? modeBtn.dataset.mode : 'progressive';
+  currentRate = gameMode === 'custom' ? Math.max(0.5, parseFloat(document.getElementById('inputRate').value) || 1) : 1.25;
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('gameArea').classList.add('active');
+  document.getElementById('resultOverlay').classList.remove('show');
+  document.getElementById('centerMsg').textContent = '';
+  document.getElementById('hud').classList.add('show');
+  document.getElementById('pauseBtn').style.display = 'flex';
+  score = 0; missCount = 0; running = true; startTime = Date.now();
+  judgeCounts = { perfect: 0, good: 0, late: 0, miss: 0 };
+  hitTimestamps = []; peakRate = 0;
+  lastFrameTime = 0; // 重置时间基计数器
+  laneBlocks = [[], [], [], []];
+  laneFlashTimers = [-1, -1, -1, -1];
+  judgeTexts = [];
+  ensureCanvas();
+  updateLayout();
+  document.getElementById('hudScore').textContent = '0';
+  document.getElementById('hudRate').textContent = '0';
+  document.getElementById('hudTarget').textContent = currentRate.toFixed(1);
+  document.getElementById('hudMiss').textContent = '0/' + MAX_MISS;
+  const msg = document.getElementById('centerMsg');
+  msg.style.color = '#fff'; msg.textContent = '3';
+  setTimeout(() => msg.textContent = '2', 600);
+  setTimeout(() => msg.textContent = '1', 1200);
+  setTimeout(() => {
+    msg.textContent = 'GO!'; msg.style.color = '#2ecc71';
+    startTime = Date.now();
+    if (gameMode === 'progressive') stageTimer = setTimeout(advanceStage, STAGE_DURATION);
+    spawnBlock();
+  }, 1800);
+  setTimeout(() => { if (running) msg.textContent = ''; }, 2300);
+}
+
+function backToMenu() {
+  isChartPlayback = false; isChartRecording = false; paused = false;
+  if (chartPlayer) { chartPlayer.pause(); chartPlayer = null; }
+  running = false; stopMetronome();
+  if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
+  if (stageTimer) { clearTimeout(stageTimer); stageTimer = null; }
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  if (recordingAnimId) { cancelAnimationFrame(recordingAnimId); recordingAnimId = null; }
+  laneBlocks = [[], [], [], []];
+  laneFlashTimers = [-1, -1, -1, -1];
+  judgeTexts = [];
+  document.getElementById('gameArea').classList.remove('active');
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('pauseBtn').style.display = 'none';
+  document.getElementById('pauseDialog').style.display = 'none';
+  document.getElementById('recDialog').style.display = 'none';
+  document.getElementById('chartOverlay').style.display = 'none';
+  document.getElementById('menu').style.display = '';
+  document.getElementById('resultOverlay').classList.remove('show');
+}
+
+function restart() {
+  document.getElementById('resultOverlay').classList.remove('show');
+  if (lastGameMode === 'chart') { startChartPlayback(); return; }
+  startGame();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   暂停 / 恢复
+   ══════════════════════════════════════════════════════════════ */
+function pauseGame() {
+  if (paused) return;
+  paused = true;
+  if (isChartRecording) {
+    if (chartPlayer) chartPlayer.pause();
+    document.getElementById('recDialogCount').innerHTML = '|&thinsp;| 已暂停';
+    document.getElementById('recDialogMsg').textContent = '录制 ' + chartMp3Name + ' · ' + recordedNotes.length + ' 个音符';
+    document.getElementById('recDialog').style.display = 'flex';
+    return;
+  }
+  if (!running) { paused = false; return; }
+  stopMetronome();
+  if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  if (isChartPlayback && chartPlayer) chartPlayer.pause();
+  document.getElementById('pauseSub').textContent = isChartPlayback ? '演奏·自制谱' : '练习模式';
+  document.getElementById('pauseDialog').style.display = 'flex';
+}
+
+function resumeGame() {
+  if (!paused) return;
+  paused = false;
+  if (isChartRecording) {
+    document.getElementById('recDialog').style.display = 'none';
+    if (chartPlayer) chartPlayer.play().catch(() => {});
+    return;
+  }
+  if (isChartPlayback) {
+    if (chartPlayer) chartPlayer.play().catch(() => {});
+    document.getElementById('pauseDialog').style.display = 'none';
+    if (!animId) animId = requestAnimationFrame(chartPlaybackLoop);
+    return;
+  }
+  document.getElementById('pauseDialog').style.display = 'none';
+  const hasBlocks = laneBlocks.some(a => a.length > 0);
+  if (!hasBlocks) spawnBlock();
+  if (!animId) animId = requestAnimationFrame(gameLoop);
+  startMetronome(Math.round(currentRate * 60));
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Judge Line 布局
+   ══════════════════════════════════════════════════════════════ */
+function updateLayout() {
+  const p = getPerspectiveParams();
+  const nearInfo = getLaneInfoAtY(p.nearY, p);
+  const jl = document.getElementById('judgeLine');
+  jl.style.top = p.nearY + 'px';
+  jl.style.left = nearInfo.lanes[0] + 'px';
+  jl.style.width = (nearInfo.lanes[LANE_COUNT-1] + nearInfo.laneW - nearInfo.lanes[0]) + 'px';
+  jl.style.background = 'rgba(102,126,234,0.3)';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   谱面录制
+   ══════════════════════════════════════════════════════════════ */
+function calcTravelTime(p) {
+  // 时间基计算：秒 × 1000 → 毫秒（帧率无关）
+  return (p.nearY - p.farY) * Math.log(1 / 0.09) / (FALL_SPEED * scrollSpeed * 0.91) * 1000;
+}
+
+function chartSpawnY(tMs, p, travelTime) {
+  if (tMs >= travelTime) return p.farY;
+  if (tMs <= 16) return p.nearY - 2;
+  const lnRatio = tMs / travelTime * Math.log(1 / 0.09);
+  const sc = Math.max(0.09, Math.exp(-lnRatio));
+  return p.farY + (p.nearY - p.farY) * (sc - 0.09) / 0.91;
+}
+
+function startChartRecording() {
+  if (!chartMp3Blob) { alert('请先上传MP3'); return; }
+  if (isChartRecording) return;
+  recordedNotes = [];
+  isChartRecording = true;
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('gameArea').classList.add('active');
+  document.getElementById('resultOverlay').classList.remove('show');
+  document.getElementById('centerMsg').textContent = '';
+  laneBlocks = [[], [], [], []];
+  laneFlashTimers = [-1, -1, -1, -1];
+  judgeTexts = [];
+  ensureCanvas();
+  updateLayout();
+  document.getElementById('chartOverlay').style.display = 'block';
+  document.getElementById('pauseBtn').style.display = 'flex';
+  document.getElementById('recDialog').style.display = 'none';
+  document.getElementById('hud').classList.add('show');
+  updateMusicInfo(true, chartMp3Name, 0);
+  document.getElementById('hudScore').textContent = '0';
+  document.getElementById('hudRate').textContent = '-';
+  document.getElementById('hudTarget').textContent = '作谱';
+  document.getElementById('hudMiss').textContent = '0/∞';
+  // 启动录制绘制循环（渲染按键反馈闪光）
+  recordingAnimId = requestAnimationFrame(recordingDrawLoop);
+  const url = URL.createObjectURL(chartMp3Blob);
+  chartPlayer = new Audio(url);
+  chartPlayer.addEventListener('ended', () => stopChartRecording(true));
+  chartPlayer.addEventListener('timeupdate', () => {
+    if (chartPlayer && chartPlayer.duration)
+      updateMusicInfo(true, null, chartPlayer.currentTime / chartPlayer.duration * 100);
+  });
+  chartPlayer.play().catch(() => {});
+}
+
+function stopChartRecording(completed) {
+  if (!isChartRecording) return;
+  isChartRecording = false;
+  if (recordingAnimId) { cancelAnimationFrame(recordingAnimId); recordingAnimId = null; }
+  document.getElementById('pauseBtn').style.display = 'none';
+  document.getElementById('pauseDialog').style.display = 'none';
+  document.getElementById('recDialog').style.display = 'none';
+  if (chartPlayer) { chartPlayer.pause(); chartPlayer = null; }
+  document.getElementById('chartOverlay').style.display = 'none';
+  chartNotes = recordedNotes.sort((a, b) => a.t - b.t);
+  recordedNotes = [];
+  if (chartNotes.length > 0 && completed) {
+    document.getElementById('centerMsg').textContent = '✅ 录制完成！共 ' + chartNotes.length + ' 个音符';
+    document.getElementById('centerMsg').style.color = '#2ecc71';
+    setTimeout(() => document.getElementById('centerMsg').textContent = '', 2000);
+  }
+  document.getElementById('chartStatus').textContent = '已录制 ' + chartNotes.length + ' 个音符';
+  setTimeout(() => backToMenu(), 500);
+}
+
+function recordTap(lane) {
+  if (!isChartRecording || !chartPlayer) return;
+  const t = chartPlayer.currentTime * 1000;
+  recordedNotes.push({t: Math.round(t), l: lane});
+}
+
+function saveChartToFile() {
+  if (chartNotes.length === 0) { alert('没有谱面可保存'); return; }
+  const data = { bpm: 0, notes: chartNotes };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (chartMp3Name || 'chart') + '.json';
+  a.click();
+}
+
+function loadChartFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      chartNotes = data.notes || [];
+      document.getElementById('chartStatus').textContent = '已加载 ' + chartNotes.length + ' 个音符';
+    } catch(err) { alert('谱面文件格式错误'); }
+  };
+  reader.readAsText(file);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   谱面演奏
+   ══════════════════════════════════════════════════════════════ */
+function startChartPlayback() {
+  if (!chartMp3Blob) { alert('请先上传MP3'); return; }
+  if (chartNotes.length === 0) { alert('请先加载或录制谱面'); return; }
+  if (isChartPlayback) { endChartPlayback(); }
+  isChartPlayback = true; chartNextIdx = 0;
+  gameMode = 'progressive';
+  // 提前创建 Audio 并加载，倒计时期间预缓冲（移动端关键：避免冷启动延迟）
+  const url = URL.createObjectURL(chartMp3Blob);
+  if (chartPlayer) { chartPlayer.pause(); chartPlayer = null; }
+  chartPlayer = new Audio(url);
+  chartPlayer.preload = 'auto';
+  if (chartPlayer.load) chartPlayer.load();
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('gameArea').classList.add('active');
+  document.getElementById('resultOverlay').classList.remove('show');
+  document.getElementById('centerMsg').textContent = '';
+  score = 0; missCount = 0; running = true; startTime = Date.now();
+  judgeCounts = { perfect: 0, good: 0, late: 0, miss: 0 };
+  hitTimestamps = []; peakRate = 0;
+  lastFrameTime = 0; // 重置时间基计数器
+  laneBlocks = [[], [], [], []];
+  laneFlashTimers = [-1, -1, -1, -1];
+  judgeTexts = [];
+  ensureCanvas();
+  drawFrame(); updateLayout();
+  document.getElementById('pauseBtn').style.display = 'flex';
+  updateMusicInfo(true, chartMp3Name, 0);
+  document.getElementById('hudScore').textContent = '0';
+  document.getElementById('hudRate').textContent = '0';
+  document.getElementById('hudTarget').textContent = '自制谱';
+  document.getElementById('hudMiss').textContent = '0/∞';
+  const msg = document.getElementById('centerMsg');
+  msg.style.color = '#fff'; msg.textContent = '3';
+  setTimeout(() => msg.textContent = '2', 600);
+  setTimeout(() => msg.textContent = '1', 1200);
+  setTimeout(() => {
+    msg.textContent = '';
+    chartPlayer.play().catch(() => {});
+    const p = getPerspectiveParams();
+    chartTravelTime = calcTravelTime(p);
+    if (!animId) animId = requestAnimationFrame(chartPlaybackLoop);
+  }, 1800);
+}
+
+function chartPlaybackLoop() {
+  if (!isChartPlayback || !chartPlayer) { animId = null; return; }
+  const now = performance.now() / 1000; // 秒
+  if (!lastFrameTime) lastFrameTime = now;
+  const dt = Math.min(0.1, now - lastFrameTime);
+  lastFrameTime = now;
+  const p = getPerspectiveParams();
+  if (chartPlayer.duration) updateMusicInfo(true, null, chartPlayer.currentTime / chartPlayer.duration * 100);
+  const elapsed = chartPlayer.currentTime * 1000;
+  chartTravelTime = calcTravelTime(p);
+  while (chartNextIdx < chartNotes.length && elapsed >= chartNotes[chartNextIdx].t - chartTravelTime) {
+    spawnChartBlock(chartNotes[chartNextIdx], elapsed, p);
+    chartNextIdx++;
+  }
+  if (!updateBlocks(p, true, dt)) return;
+  drawFrame();
+  if (chartNextIdx >= chartNotes.length && !laneBlocks.some(a => a.length > 0)) {
+    endChartPlayback(); return;
+  }
+  animId = requestAnimationFrame(chartPlaybackLoop);
+}
+
+function spawnChartBlock(note, elapsed, p) {
+  const lane = note.l;
+  const remain = Math.max(0, note.t - elapsed);
+  const b = {
+    lane: lane,
+    posY: chartSpawnY(remain, p, chartTravelTime),
+    hue: Math.floor(Math.random() * 360),
+    judged: false,
+    hitTime: null,
+    missTime: null
+  };
+  laneBlocks[lane].push(b);
+}
+
+function endChartPlayback() {
+  lastGameMode = 'chart'; isChartPlayback = false;
+  if (chartPlayer) { chartPlayer.pause(); chartPlayer = null; }
+  running = false;
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  updateMusicInfo(false);
+  laneBlocks = [[], [], [], []];
+  laneFlashTimers = [-1, -1, -1, -1];
+  judgeTexts = [];
+  document.getElementById('resultScore').textContent = score;
+  document.getElementById('resultPerfect').textContent = judgeCounts.perfect;
+  document.getElementById('resultGood').textContent = judgeCounts.good;
+  document.getElementById('resultLate').textContent = judgeCounts.late;
+  document.getElementById('resultComment').textContent = '';
+  // chart 模式：隐藏手速/秒/评语，只留 perfect/good/late
+  document.getElementById('resultRate').style.display = 'none';
+  const lbl = document.getElementById('resultRate').nextElementSibling;
+  if (lbl) lbl.style.display = 'none';
+  document.getElementById('resultTime').parentElement.style.display = 'none';
+  document.getElementById('resultOverlay').classList.add('show');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   音乐信息 & 封面
+   ══════════════════════════════════════════════════════════════ */
+function updateMusicInfo(show, title, pct) {
+  const box = document.getElementById('musicInfo');
+  if (show) {
+    box.style.display = 'flex';
+    if (title) document.getElementById('musicTitle').textContent = title;
+    if (pct !== undefined) document.getElementById('progressFill').style.width = Math.min(100, pct) + '%';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   事件绑定
+   ══════════════════════════════════════════════════════════════ */
+document.getElementById('startBtn').addEventListener('pointerdown', e => { e.preventDefault(); startGame(); });
+document.getElementById('restartBtn').addEventListener('pointerdown', e => { e.preventDefault(); restart(); });
+document.getElementById('backBtn').addEventListener('pointerdown', e => { e.preventDefault(); backToMenu(); });
+document.getElementById('pauseBtn').addEventListener('pointerdown', e => { e.preventDefault(); pauseGame(); });
+document.getElementById('pauseResumeBtn').addEventListener('pointerdown', e => { e.preventDefault(); resumeGame(); });
+document.getElementById('pauseExitBtn').addEventListener('pointerdown', e => { e.preventDefault(); paused = false; backToMenu(); });
+document.getElementById('uploadMp3Btn').addEventListener('pointerdown', () => document.getElementById('mp3Input').click());
+document.getElementById('mp3Input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) {
+    chartMp3Blob = f; chartMp3Name = f.name.replace(/\.[^.]+$/, '');
+    document.getElementById('mp3Status').textContent = '🎵 ' + f.name;
+    if (typeof jsmediatags !== 'undefined') {
+      jsmediatags.read(f, {
+        onSuccess: tag => {
+          const pic = tag.tags && tag.tags.picture;
+          if (pic && pic.data) {
+            const data = pic.data;
+            const bytes = new Uint8Array(data.length);
+            for (let i = 0; i < data.length; i++) bytes[i] = data.charCodeAt(i);
+            const blob = new Blob([bytes], {type: pic.format});
+            const url = URL.createObjectURL(blob);
+            document.getElementById('musicCover').innerHTML = '<img src="' + url + '" style="width:36px;height:36px;border-radius:6px;object-fit:cover;">';
+          }
+        },
+        onError: () => {}
+      });
+    }
+  }
+});
+document.getElementById('chartModeBtn').addEventListener('pointerdown', () => startChartRecording());
+document.getElementById('recContinueBtn').addEventListener('pointerdown', () => {
+  paused = false;
+  document.getElementById('recDialog').style.display = 'none';
+  if (chartPlayer) chartPlayer.play().catch(() => {});
+});
+document.getElementById('recSaveBtn').addEventListener('pointerdown', () => {
+  document.getElementById('recDialog').style.display = 'none';
+  stopChartRecording(true);
+});
+document.getElementById('recDiscardBtn').addEventListener('pointerdown', () => {
+  recordedNotes = [];
+  document.getElementById('recDialog').style.display = 'none';
+  stopChartRecording(false);
+});
+document.getElementById('saveChartBtn').addEventListener('pointerdown', () => saveChartToFile());
+document.getElementById('loadChartBtn').addEventListener('pointerdown', () => {
+  document.getElementById('chartInput').value = '';
+  document.getElementById('chartInput').click();
+});
+document.getElementById('chartInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) loadChartFromFile(f);
+});
+document.getElementById('playChartBtn').addEventListener('pointerdown', () => startChartPlayback());
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('pointerdown', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('customInputs').classList.toggle('show', btn.dataset.mode === 'custom');
+  });
+});
+document.getElementById('speedDown').addEventListener('pointerdown', () => setScrollSpeed(scrollSpeed - 0.1));
+document.getElementById('speedUp').addEventListener('pointerdown', () => setScrollSpeed(scrollSpeed + 0.1));
+document.getElementById('inputRate').addEventListener('input', () => {
+  const r = Math.max(0.5, parseFloat(document.getElementById('inputRate').value) || 1);
+  document.getElementById('inputBpm').value = Math.round(r * 60);
+});
+document.getElementById('inputBpm').addEventListener('input', () => {
+  const bpm = Math.max(30, parseFloat(document.getElementById('inputBpm').value) || 60);
+  const rate = Math.round(bpm / 60 * 10) / 10;
+  document.getElementById('inputRate').value = rate;
+  const actualBpm = Math.round(rate * 60);
+  if (Math.abs(actualBpm - bpm) > 3) document.getElementById('inputBpm').value = actualBpm;
+});
+
+/* ── 触摸 & 鼠标 ── */
+document.getElementById('gameArea').addEventListener('touchstart', e => {
+  if (!running && !isChartRecording) return; e.preventDefault();
+  const arr = [];
+  for (let t of e.changedTouches) arr.push({ x: t.clientX, y: t.clientY });
+  if (isChartRecording) {
+    const p = getPerspectiveParams();
+    for (const pos of arr) {
+      const info = getLaneInfoAtY(p.nearY, p);
+      for (let i = 0; i < LANE_COUNT; i++) {
+        if (pos.x >= info.lanes[i] && pos.x <= info.lanes[i] + info.laneW) { triggerLaneFlash(i); recordTap(i); break; }
+      }
+    }
+    return;
+  }
+  handleTap(arr);
+}, { passive: false });
+
+document.getElementById('gameArea').addEventListener('mousedown', e => {
+  if (!running && !isChartRecording) return;
+  if (isChartRecording) {
+    const p = getPerspectiveParams();
+    const info = getLaneInfoAtY(p.nearY, p);
+    for (let i = 0; i < LANE_COUNT; i++) {
+      if (e.clientX >= info.lanes[i] && e.clientX <= info.lanes[i] + info.laneW) { triggerLaneFlash(i); recordTap(i); break; }
+    }
+    return;
+  }
+  handleTap([{ x: e.clientX, y: e.clientY }]);
+});
+
+/* ── 键盘 ── */
+const KEY_MAP = { s: 0, S: 0, d: 1, D: 1, j: 2, J: 2, k: 3, K: 3 };
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+    if (paused) { resumeGame(); return; }
+    if (running || isChartRecording) { pauseGame(); return; }
+  }
+  const lane = KEY_MAP[e.key];
+  if (lane === undefined) return;
+  e.preventDefault();
+  if (isChartRecording) { triggerLaneFlash(lane); recordTap(lane); return; }
+  if (!running) return;
+  const p = getPerspectiveParams();
+  const info = getLaneInfoAtY(p.nearY, p);
+  handleTap([{ x: info.lanes[lane] + info.laneW / 2, y: p.nearY }]);
+});
+
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+document.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('resize', () => {
+  if (document.getElementById('gameArea').classList.contains('active')) {
+    ensureCanvas();
+    drawFrame();
+    updateLayout();
+  }
+});
+</script>
+</body>
+</html>
