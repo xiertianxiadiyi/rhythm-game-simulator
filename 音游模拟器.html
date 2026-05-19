@@ -158,6 +158,38 @@ body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
 #recDialog .box .btn:active { transform: scale(0.96); }
 #recDialog .box .btn.primary { background: #e74c3c; border-color: transparent; }
 
+#settingsDialog {
+  display: none; position: absolute; inset: 0; z-index: 110;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+  justify-content: center; align-items: center;
+}
+#settingsDialog.show { display: flex; }
+#settingsDialog .box {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 28px 32px; text-align: center; max-width: 320px; width: 80%;
+}
+#settingsDialog .box .title { font-size: 20px; font-weight: 700; margin-bottom: 12px; color: #fff; }
+#settingsDialog .box .row-label { font-size: 13px; color: rgba(255,255,255,0.4); text-align: left; margin: 14px 0 6px; }
+#settingsDialog .box .slider-row { display: flex; align-items: center; gap: 8px; }
+#settingsDialog .box .slider-row span { font-size: 12px; color: rgba(255,255,255,0.3); }
+#settingsDialog .box input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+  background: rgba(255,255,255,0.1); border-radius: 3px; outline: none; cursor: pointer;
+}
+#settingsDialog .box input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+  background: #667eea; cursor: pointer; border: none;
+}
+#settingsDialog .box .btn {
+  display: block; width: 100%; margin: 6px 0; padding: 12px;
+  border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: #fff; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; letter-spacing: 1px;
+}
+#settingsDialog .box .btn:active { transform: scale(0.96); }
+#settingsDialog .box .btn.primary { background: #667eea; border-color: transparent; }
+#settingsDialog .box .val { font-size: 18px; font-weight: 700; color: #fff; min-width: 42px; text-align: center; }
+
 .center-msg {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   font-size: 30px; font-weight: 800; letter-spacing: 2px;
@@ -217,12 +249,7 @@ body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     </div>
     <div class="hint">修改任一自动换算</div>
   </div>
-  <div class="speed-label">下落速度（仅视觉，不影响击打频率）</div>
-  <div class="speed-select" id="speedSelect">
-    <button class="speed-btn" id="speedDown">−</button>
-    <span id="speedDisplay">1.0</span>
-    <button class="speed-btn" id="speedUp">+</button>
-  </div>
+  <button class="mode-btn" id="settingsBtn" style="margin-bottom:16px;">⚙ 设置</button>
   <button class="start-btn" id="startBtn">开始挑战</button>
   <div class="best" id="bestDisplay">—</div>
   <div style="width:80%;max-width:360px;border-top:1px solid rgba(255,255,255,0.06);margin:14px 0 12px;"></div>
@@ -299,10 +326,29 @@ body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   </div>
 </div>
 
+<div id="settingsDialog">
+  <div class="box">
+    <div class="title">⚙ 设置</div>
+    <div class="row-label">下落速度（仅视觉）</div>
+    <div class="slider-row">
+      <span>0.5</span>
+      <input type="range" id="speedSlider" min="0.5" max="6" step="0.1" value="1">
+      <span>6.0</span>
+      <span class="val" id="settingsSpeed">1.0</span>
+    </div>
+    <div class="row-label">节拍器音量</div>
+    <input type="range" id="metronomeVolSlider" min="0" max="100" value="80">
+    <div class="row-label">按键音量</div>
+    <input type="range" id="keySoundVolSlider" min="0" max="100" value="80">
+    <button class="btn primary" id="settingsCloseBtn" style="margin-top:18px;">关闭</button>
+  </div>
+</div>
+
 <script>
 /* ── 音频 ── */
 let audioCtx = null;
 let metronomeTimer = null;
+let metronomeBpm = 180;
 function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
 function playClick(freq, vol, dur) {
   try {
@@ -311,18 +357,40 @@ function playClick(freq, vol, dur) {
     o.type = 'sine'; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
     g.gain.setValueAtTime(vol, audioCtx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(o, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur);
   } catch(e) {}
 }
-function playBeat() { playClick(1200, 0.12, 0.05); playClick(600, 0.04, 0.06); }
-function playHit() { playClick(1800, 0.10, 0.04); }
-function playMiss() { playClick(200, 0.15, 0.15); }
-function startMetronome(bpm) {
+function playBeat() { playClick(1200, 0.18 * metronomeVol, 0.06); playClick(600, 0.08 * metronomeVol, 0.08); }
+function playHit() { playClick(1100, 0.28 * keySoundVol, 0.07); }
+function playMiss() { playClick(200, 0.20 * keySoundVol, 0.18); }
+function playTap() { playClick(600, 0.12 * keySoundVol, 0.04); } // 空按 / 一般按键反馈
+function startMetronome(bpm, prefill) {
   stopMetronome();
-  playBeat();
+  metronomeBpm = bpm;
+  const interval = 60000 / bpm;
+  const p = getPerspectiveParams();
+  const travelTime = calcTravelTime(p);
+  // tick 每次 spawn 的提前量 = ceil(travelTime / interval) * interval（对齐到整拍）
+  const prelookMs = Math.ceil(travelTime / interval) * interval;
+
+  // GO! 瞬间预填充跑道：让前面 prelookMs/interval 个方块已在下落中
+  if (prefill) {
+    let remain = 0;
+    while (remain < prelookMs) {
+      spawnBlockAt(remain, p, travelTime);
+      remain += interval;
+    }
+  }
+
+  // 每个 tick：beat 响 + 为 prelookMs 后的节拍 spawn 新方块
   (function tick() {
     if (!running) return;
-    metronomeTimer = setTimeout(() => { playBeat(); tick(); }, 60000 / bpm);
+    playBeat();
+    const p2 = getPerspectiveParams();
+    const tt = calcTravelTime(p2);
+    const pre = Math.ceil(tt / interval) * interval;
+    spawnBlockAt(pre, p2, tt);
+    metronomeTimer = setTimeout(tick, interval);
   })();
 }
 function stopMetronome() { if (metronomeTimer) { clearTimeout(metronomeTimer); metronomeTimer = null; } }
@@ -362,15 +430,34 @@ const MAX_MISS = 5;
 const STAGE_DURATION = 5000;
 const RATE_INCREMENT = 0.2;
 const SPEED_KEY = 'scroll_speed';
+const METRONOME_VOL_KEY = 'metronome_vol';
+const KEYSOUND_VOL_KEY = 'keysound_vol';
 const FALL_SPEED = 360; // px/s at scale=1.0 (原 6px/frame × 60fps → 帧率无关)
 
 let scrollSpeed = parseFloat(localStorage.getItem(SPEED_KEY)) || 1.0;
-document.getElementById('speedDisplay').textContent = scrollSpeed.toFixed(1);
+let metronomeVol = parseFloat(localStorage.getItem(METRONOME_VOL_KEY)) ?? 0.8;
+let keySoundVol = parseFloat(localStorage.getItem(KEYSOUND_VOL_KEY)) ?? 0.8;
+
 function setScrollSpeed(v) {
   scrollSpeed = Math.round(Math.max(0.5, Math.min(6.0, v)) * 10) / 10;
-  document.getElementById('speedDisplay').textContent = scrollSpeed.toFixed(1);
+  document.getElementById('settingsSpeed').textContent = scrollSpeed.toFixed(1);
+  document.getElementById('speedSlider').value = scrollSpeed;
   localStorage.setItem(SPEED_KEY, String(scrollSpeed));
 }
+function setMetronomeVol(v) {
+  metronomeVol = Math.round(v) / 100;
+  localStorage.setItem(METRONOME_VOL_KEY, String(metronomeVol));
+}
+function setKeySoundVol(v) {
+  keySoundVol = Math.round(v) / 100;
+  localStorage.setItem(KEYSOUND_VOL_KEY, String(keySoundVol));
+}
+
+// 初始同步 slider 值到存储值
+document.getElementById('speedSlider').value = scrollSpeed;
+document.getElementById('settingsSpeed').textContent = scrollSpeed.toFixed(1);
+document.getElementById('metronomeVolSlider').value = metronomeVol * 100;
+document.getElementById('keySoundVolSlider').value = keySoundVol * 100;
 
 /* ── 游戏状态 ── */
 let running = false, paused = false, score = 0, missCount = 0, startTime = 0;
@@ -379,7 +466,7 @@ let lastFrameTime = 0; // 时间基移动用，秒为单位
 let lastGameMode = 'normal';
 let gameMode = 'progressive';
 let currentRate = 1.25;
-let spawnTimer = null, stageTimer = null;
+let stageTimer = null;
 let hitTimestamps = [];
 let peakRate = 0;
 let laneBlocks = [[], [], [], []];
@@ -753,8 +840,6 @@ function gameLoop() {
 function spawnBlock() {
   if (!running) return;
   const p = getPerspectiveParams();
-  spawnTimer = setTimeout(spawnBlock, 1000 / currentRate);
-  if (!metronomeTimer) startMetronome(Math.round(currentRate * 60));
   document.getElementById('hudTarget').textContent = currentRate.toFixed(1);
 
   const lane = Math.floor(Math.random() * LANE_COUNT);
@@ -768,6 +853,23 @@ function spawnBlock() {
   };
   laneBlocks[lane].push(b);
 
+  if (!animId) animId = requestAnimationFrame(gameLoop);
+}
+
+/* 在指定位置生成方块，使其 exactly remainMs 后到达判定线 */
+function spawnBlockAt(remainMs, p, travelTime) {
+  if (!running) return;
+  document.getElementById('hudTarget').textContent = currentRate.toFixed(1);
+  const lane = Math.floor(Math.random() * LANE_COUNT);
+  const b = {
+    lane: lane,
+    posY: chartSpawnY(remainMs, p, travelTime),
+    hue: Math.floor(Math.random() * 360),
+    judged: false,
+    hitTime: null,
+    missTime: null
+  };
+  laneBlocks[lane].push(b);
   if (!animId) animId = requestAnimationFrame(gameLoop);
 }
 
@@ -786,7 +888,7 @@ function handleTap(positions) {
     if (lane < 0) continue;
 
     const candidates = laneBlocks[lane].filter(b => !b.judged);
-    if (!candidates.length) continue;
+    if (!candidates.length) { triggerLaneFlash(lane); playTap(); continue; }
 
     let best = candidates[0], bestDist = Infinity;
     for (const c of candidates) {
@@ -799,7 +901,7 @@ function handleTap(positions) {
     if (bestDist <= PERFECT_RANGE) { text = 'PERFECT'; color = '#2ecc71'; }
     else if (bestDist <= GOOD_RANGE) { text = 'GOOD'; color = '#f39c12'; }
     else if (bestDist <= MISS_RANGE) { text = 'LATE'; color = '#3498db'; }
-    else continue;
+    else { triggerLaneFlash(lane); playTap(); continue; }
 
     best.judged = true;
     best.hitTime = performance.now();
@@ -829,14 +931,13 @@ function advanceStage() {
   currentRate += RATE_INCREMENT;
   document.getElementById('hudTarget').textContent = currentRate.toFixed(1);
   stopMetronome();
-  startMetronome(Math.round(currentRate * 60));
+  startMetronome(Math.round(currentRate * 60), false);
   stageTimer = setTimeout(advanceStage, STAGE_DURATION);
 }
 
 function gameOver() {
   if (!running) return;
   lastGameMode = 'normal'; running = false; stopMetronome();
-  if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
   if (stageTimer) { clearTimeout(stageTimer); stageTimer = null; }
   if (animId) { cancelAnimationFrame(animId); animId = null; }
   laneBlocks = [[], [], [], []];
@@ -867,6 +968,7 @@ function startGame() {
   document.getElementById('gameArea').classList.add('active');
   document.getElementById('resultOverlay').classList.remove('show');
   document.getElementById('centerMsg').textContent = '';
+  updateMusicInfo(false);
   document.getElementById('hud').classList.add('show');
   document.getElementById('pauseBtn').style.display = 'flex';
   score = 0; missCount = 0; running = true; startTime = Date.now();
@@ -890,7 +992,7 @@ function startGame() {
     msg.textContent = 'GO!'; msg.style.color = '#2ecc71';
     startTime = Date.now();
     if (gameMode === 'progressive') stageTimer = setTimeout(advanceStage, STAGE_DURATION);
-    spawnBlock();
+    startMetronome(Math.round(currentRate * 60), true);
   }, 1800);
   setTimeout(() => { if (running) msg.textContent = ''; }, 2300);
 }
@@ -899,7 +1001,6 @@ function backToMenu() {
   isChartPlayback = false; isChartRecording = false; paused = false;
   if (chartPlayer) { chartPlayer.pause(); chartPlayer = null; }
   running = false; stopMetronome();
-  if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
   if (stageTimer) { clearTimeout(stageTimer); stageTimer = null; }
   if (animId) { cancelAnimationFrame(animId); animId = null; }
   if (recordingAnimId) { cancelAnimationFrame(recordingAnimId); recordingAnimId = null; }
@@ -914,6 +1015,7 @@ function backToMenu() {
   document.getElementById('chartOverlay').style.display = 'none';
   document.getElementById('menu').style.display = '';
   document.getElementById('resultOverlay').classList.remove('show');
+  updateMusicInfo(false);
 }
 
 function restart() {
@@ -937,7 +1039,6 @@ function pauseGame() {
   }
   if (!running) { paused = false; return; }
   stopMetronome();
-  if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
   if (animId) { cancelAnimationFrame(animId); animId = null; }
   if (isChartPlayback && chartPlayer) chartPlayer.pause();
   document.getElementById('pauseSub').textContent = isChartPlayback ? '演奏·自制谱' : '练习模式';
@@ -959,10 +1060,8 @@ function resumeGame() {
     return;
   }
   document.getElementById('pauseDialog').style.display = 'none';
-  const hasBlocks = laneBlocks.some(a => a.length > 0);
-  if (!hasBlocks) spawnBlock();
   if (!animId) animId = requestAnimationFrame(gameLoop);
-  startMetronome(Math.round(currentRate * 60));
+  startMetronome(Math.round(currentRate * 60), false);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1092,6 +1191,8 @@ function startChartPlayback() {
   chartPlayer = new Audio(url);
   chartPlayer.preload = 'auto';
   if (chartPlayer.load) chartPlayer.load();
+  // 音乐结束后才终止游戏（不等方块清屏）
+  chartPlayer.addEventListener('ended', () => { if (isChartPlayback) endChartPlayback(); });
   document.getElementById('menu').style.display = 'none';
   document.getElementById('gameArea').classList.add('active');
   document.getElementById('resultOverlay').classList.remove('show');
@@ -1140,9 +1241,6 @@ function chartPlaybackLoop() {
   }
   if (!updateBlocks(p, true, dt)) return;
   drawFrame();
-  if (chartNextIdx >= chartNotes.length && !laneBlocks.some(a => a.length > 0)) {
-    endChartPlayback(); return;
-  }
   animId = requestAnimationFrame(chartPlaybackLoop);
 }
 
@@ -1261,8 +1359,26 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
     document.getElementById('customInputs').classList.toggle('show', btn.dataset.mode === 'custom');
   });
 });
-document.getElementById('speedDown').addEventListener('pointerdown', () => setScrollSpeed(scrollSpeed - 0.1));
-document.getElementById('speedUp').addEventListener('pointerdown', () => setScrollSpeed(scrollSpeed + 0.1));
+/* ── 设置面板 ── */
+document.getElementById('settingsBtn').addEventListener('pointerdown', e => { e.preventDefault();
+  document.getElementById('speedSlider').value = scrollSpeed;
+  document.getElementById('metronomeVolSlider').value = metronomeVol * 100;
+  document.getElementById('keySoundVolSlider').value = keySoundVol * 100;
+  document.getElementById('settingsSpeed').textContent = scrollSpeed.toFixed(1);
+  document.getElementById('settingsDialog').classList.add('show');
+});
+document.getElementById('settingsCloseBtn').addEventListener('pointerdown', e => { e.preventDefault();
+  document.getElementById('settingsDialog').classList.remove('show');
+});
+document.getElementById('speedSlider').addEventListener('input', function() {
+  setScrollSpeed(parseFloat(this.value));
+});
+document.getElementById('metronomeVolSlider').addEventListener('input', function() {
+  setMetronomeVol(parseFloat(this.value));
+});
+document.getElementById('keySoundVolSlider').addEventListener('input', function() {
+  setKeySoundVol(parseFloat(this.value));
+});
 document.getElementById('inputRate').addEventListener('input', () => {
   const r = Math.max(0.5, parseFloat(document.getElementById('inputRate').value) || 1);
   document.getElementById('inputBpm').value = Math.round(r * 60);
@@ -1285,7 +1401,7 @@ document.getElementById('gameArea').addEventListener('touchstart', e => {
     for (const pos of arr) {
       const info = getLaneInfoAtY(p.nearY, p);
       for (let i = 0; i < LANE_COUNT; i++) {
-        if (pos.x >= info.lanes[i] && pos.x <= info.lanes[i] + info.laneW) { triggerLaneFlash(i); recordTap(i); break; }
+        if (pos.x >= info.lanes[i] && pos.x <= info.lanes[i] + info.laneW) { triggerLaneFlash(i); playTap(); recordTap(i); break; }
       }
     }
     return;
@@ -1299,7 +1415,7 @@ document.getElementById('gameArea').addEventListener('mousedown', e => {
     const p = getPerspectiveParams();
     const info = getLaneInfoAtY(p.nearY, p);
     for (let i = 0; i < LANE_COUNT; i++) {
-      if (e.clientX >= info.lanes[i] && e.clientX <= info.lanes[i] + info.laneW) { triggerLaneFlash(i); recordTap(i); break; }
+      if (e.clientX >= info.lanes[i] && e.clientX <= info.lanes[i] + info.laneW) { triggerLaneFlash(i); playTap(); recordTap(i); break; }
     }
     return;
   }
@@ -1316,7 +1432,7 @@ document.addEventListener('keydown', e => {
   const lane = KEY_MAP[e.key];
   if (lane === undefined) return;
   e.preventDefault();
-  if (isChartRecording) { triggerLaneFlash(lane); recordTap(lane); return; }
+  if (isChartRecording) { triggerLaneFlash(lane); playTap(); recordTap(lane); return; }
   if (!running) return;
   const p = getPerspectiveParams();
   const info = getLaneInfoAtY(p.nearY, p);
