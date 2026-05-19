@@ -10,9 +10,9 @@
 |------|--------|
 | ![菜单](screenshots/menu.png) | ![游戏中](screenshots/gameplay.png) |
 
-| 自制谱录制 | 结算 |
+| 自制谱录制 | 游玩结算 |
 |------------|------|
-| ![录制](screenshots/recording.png) | ![游玩结算](screenshots/result.png) |
+| ![录制](screenshots/recording.png) | ![结算](screenshots/result.png) |
 
 ## 功能
 
