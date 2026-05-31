@@ -1,3 +1,14 @@
-# 用户谱面与音频文件
-*.json
-*.mp3
+# Android build
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/captures/
+android/local.properties
+android/capacitor-android/
+android/capacitor-cordova-android-plugins/
+android/*.iml
+
+# OS
+.DS_Store
+Thumbs.db
